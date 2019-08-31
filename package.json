@@ -1,0 +1,26 @@
+{
+  "name": "zkcusd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aztec/contract-addresses": "^1.7.2",
+    "@aztec/contract-artifacts": "^1.12.1",
+    "@aztec/dev-utils": "^0.12.2",
+    "@aztec/protocol": "^0.9.1",
+    "@aztec/secp256k1": "^1.0.1",
+    "aztec.js": "^0.11.1",
+    "dotenv": "^8.1.0",
+    "openzeppelin-solidity": "^2.3.0",
+    "truffle": "^5.0.33",
+    "truffle-contract": "^4.0.30",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "web3": "^1.2.1"
+  }
+}
