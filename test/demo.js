@@ -21,6 +21,7 @@ const WT0ABI = JSON.parse(fs.readFileSync('./artifacts/Wt0.json'))['abi']
 
 // Global pre-run setup
 const NET = "Ropsten"
+const AMOUNT_OF_TOKENS_TO_MINT = 10
 const availableAddresses = aztecContractAddresses.getContractAddressesForNetwork(networkIdMap[NET])
 const contractAddresses = require('./address-book').contracts
 const userAddresses = require('./address-book').users
@@ -37,7 +38,6 @@ const user = userAddresses['USER']
 const AceContract = new web3.eth.Contract(aztecContractArtifacts.ACE.abi, availableAddresses.ACE)
 const CusdContract = new web3.eth.Contract(CUSDABI, CusdAddress)
 const Wt0Contract = new web3.eth.Contract(WT0ABI, Wt0Address)
-
 const ZKAssetContract = new web3.eth.Contract(aztecContractArtifacts.ZkAsset.abi, ZKAssetAddress)
 
 contract('Pre-Test: Detecting Deployed Contracts', async (accounts) => {
@@ -101,12 +101,12 @@ contract('Pre-Test: Detecting Deployed Contracts', async (accounts) => {
 
 })
 
-contract('1. Distribute ERC20 ', async (accounts) => {
-    const amountToMint = 10
+contract('1. Distribute ERC20 to a new holder', async (accounts) => {
+    const amountToMint = AMOUNT_OF_TOKENS_TO_MINT
     const minterKey = `0x${process.env.CUSD_MINTER_ROPSTEN}`
     let minter = web3.eth.accounts.privateKeyToAccount(minterKey)
     describe('Testing issuer of new ERC20', () => {
-        it('Minter is correct', async () => {
+        it('Minter has correct address', async () => {
             assert.equal(minter.address, minterCUSD)
         })
         it('Minter has enough balance', async () => {
@@ -122,6 +122,7 @@ contract('1. Distribute ERC20 ', async (accounts) => {
             balance = await CusdContract.methods.balanceOf(user).call()
             assert(balance > 0)
         })
+
         it(`Minting ${amountToMint}...`, async () => {
             let amountToMintEther = web3.utils.toWei(amountToMint.toString(), 'ether')
             let mintTransaction = Wt0Contract.methods.mintCUSD(user, amountToMintEther)
@@ -136,9 +137,10 @@ contract('1. Distribute ERC20 ', async (accounts) => {
                 signedTransaction.rawTransaction
             )
             // @DEBUG:
-            // console.log(`Pending block hash: `, pendingHash.blockHash)  
-            // console.log(`Pending transaction hash: `, pendingHash.transactionHash)        
+            console.log(`Pending block hash: `, pendingHash.blockHash)  
+            console.log(`Pending transaction hash: `, pendingHash.transactionHash)        
         })
+
         let postBalance
         it('User has the correct post-mint balance', async () => {
             let amountMintedEther = web3.utils.toWei(amountToMint.toString(), 'ether')
@@ -149,6 +151,53 @@ contract('1. Distribute ERC20 ', async (accounts) => {
 
 })
 
+contract('2.  Holder approves ACE to spend its ERC20', async (accounts) => {
+    const amountToApprove = AMOUNT_OF_TOKENS_TO_MINT
+    const userKey = `0x${process.env.ROPSTEN_CUSD_USER}`
+    let holder = web3.eth.accounts.privateKeyToAccount(userKey)
+    describe('Testing holder of new ERC20', () => {
+        it('User has correct address', async () => {
+            assert.equal(holder.address, user)
+        })
+        it('User has enough balance', async () => {
+            let balance = await web3.eth.getBalance(holder.address)
+            let balanceEther = web3.utils.fromWei(balance, 'ether')
+            assert(balanceEther > 0.1)
+        })
+    })
+
+    // describe(`Approving ACE to spend CUSD`, () => {
+    //     let allowance
+    //     it('ACE has an allowance', async () => {
+    //         allowance = await CusdContract.methods.allowance(holder.address, AceContract.options.address).call()
+    //         console.log(allowance)
+    //         assert(allowance > 0)
+    //     })
+    //     it(`Approving...`, async () => {
+    //         let amountToApproveEther = web3.utils.toWei(amountToApprove.toString(), 'ether')
+    //         let _transaction = CusdContract.methods.approve(AceContract.options.address, amountToApproveEther)
+    //         let gasEstimate = await _transaction.estimateGas({ from: holder.address })
+    //         let signedTransaction = await holder.signTransaction({
+    //             gas: gasEstimate,
+    //             gasPrice: web3.utils.toWei('30', 'gwei'),
+    //             to: CusdContract.options.address,
+    //             data: _transaction.encodeABI()
+    //         })
+    //         let pendingHash = await web3.eth.sendSignedTransaction(
+    //             signedTransaction.rawTransaction
+    //         )
+    //         // @DEBUG:
+    //         console.log(`Pending block hash: `, pendingHash.blockHash)  
+    //         console.log(`Pending transaction hash: `, pendingHash.transactionHash)        
+    //     })
+    //     let postAllowance
+    //     it('User has the correct post-mint allowance', async () => {
+    //         let amountApprovedEther = web3.utils.toWei(amountToApprove.toString(), 'ether')
+    //         postAllowance = await CusdContract.methods.allowance(holder.address, AceContract.options.address).call()
+    //         assert.equal(parseFloat(postAllowance), parseFloat(allowance)+parseFloat(amountApprovedEther))
+    //     })
+    // })
+})
 // contract('2. Convert ERC20 => ZK-ERC20')
 
 // contract('3 Distribute ZK-ERC20 Confidentially')
