@@ -62,7 +62,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     ropsten: {
-      provider: () => new HDWalletProvider(process.env.ROPSTEN_OWNER, `https://ropsten.infura.io/v3/08e218c158154582a6523eb1d36e6120`),
+      provider: () => new HDWalletProvider(process.env.ROPSTEN_DEPLOYER, `https://ropsten.infura.io/v3/08e218c158154582a6523eb1d36e6120`),
       network_id: 3,       // Ropsten's id
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
@@ -86,14 +86,14 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.5.2",    // Fetch exact version from solc-bin (default: truffle's version)
+      version: "0.5.7",    // Fetch exact version from solc-bin (default: truffle's version)
       docker: false,        // Use "0.5.1" you've installed locally with docker (default: false)
       settings: {          // See the solidity docs for advice about optimization and evmVersion
        optimizer: {
          enabled: false,
          runs: 200
        },
-      //  evmVersion: "byzantium"
+       evmVersion: "constantinople"
       }
     }
   }
