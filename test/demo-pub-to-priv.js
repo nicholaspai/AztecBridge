@@ -1,16 +1,19 @@
 // General imports
-require('dotenv').config()
 const fs = require('fs')
+const config = require('./config')
+
+// Global pre-run setup
+const NET = config.networkName
+const AMOUNT_OF_TOKENS_TO_MINT = config.tokensToMint
 
 // Web3
 const Web3 = require('web3')
-const ROPSTEN_PROVIDER='https://ropsten.infura.io/v3/08e218c158154582a6523eb1d36e6120'
-const web3 = new Web3(ROPSTEN_PROVIDER)
+const providerName = config.web3Provider
+const web3 = new Web3(providerName)
 
 // Aztec imports
 const aztecContractAddresses = require('@aztec/contract-addresses')
 const networkIdMap = aztecContractAddresses.NetworkId // Map network-name to network-id
-const utils = require('@aztec/dev-utils')
 const aztec = require('aztec.js')
 const { JoinSplitProof, note } = aztec
 const secp256k1 = require('@aztec/secp256k1')
@@ -20,10 +23,6 @@ const aztecContractArtifacts = require('@aztec/contract-artifacts')
 const CUSDABI = JSON.parse(fs.readFileSync('./artifacts/MetaToken.json'))['abi']
 const WT0ABI = JSON.parse(fs.readFileSync('./artifacts/Wt0.json'))['abi']
 
-// Global pre-run setup
-const NET = "Ropsten"
-const AMOUNT_OF_TOKENS_TO_MINT = 10
-
 // Load addresses
 const availableAddresses = aztecContractAddresses.getContractAddressesForNetwork(networkIdMap[NET])
 const contractAddresses = require('./address-book').contracts
@@ -31,12 +30,7 @@ const userAddresses = require('./address-book').users
 const CusdAddress = contractAddresses['CUSD_ROPSTEN']
 const Wt0Address = contractAddresses['WT0_ROPSTEN']
 const ZKAssetAddress = contractAddresses['ZK20_ROPSTEN']
-const ownerACE = userAddresses['ACE_OWNER']
-const ownerCUSD = userAddresses['CUSD_OWNER']
-const ownerWT0 = userAddresses['WT0_OWNER']
 const minterCUSD = userAddresses['CUSD_MINTER']
-const user = userAddresses['USER']
-const user2 = userAddresses['USER-2']
 
 // Load contracts
 const AceContract = new web3.eth.Contract(aztecContractArtifacts.ACE.abi, availableAddresses.ACE)
@@ -51,8 +45,8 @@ contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
         it(`- version is ${web3Version}`, async () => {
             assert.equal(web3.version.toString(), web3Version)
         })
-        it(`- provider is ${ROPSTEN_PROVIDER}`, async () => {
-            assert.equal(web3.currentProvider.host, ROPSTEN_PROVIDER)
+        it(`- provider is ${providerName}`, async () => {
+            assert.equal(web3.currentProvider.host, providerName)
         })
         it(`- listening to peers`, async () => {
             assert(await web3.eth.net.isListening())
@@ -63,10 +57,6 @@ contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
         })     
     })
     describe('ACE Contract', () => {
-        it('- has the correct owner', async () => {
-            let owner = await AceContract.methods.owner().call()
-            assert.equal(web3.utils.toChecksumAddress(owner), web3.utils.toChecksumAddress(ownerACE))
-        })
         it('- has set the correct flags', async () => {
             const registry = await AceContract.methods.getRegistry(ZKAssetContract.options.address).call()
             assert(!registry.canAdjustSupply)
@@ -79,20 +69,12 @@ contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
             let totalSupplyEther = web3.utils.fromWei(totalSupply.toString(), 'ether')
             assert(totalSupplyEther > 0)
         })
-        it('- has the correct owner', async () => {
-            let owner = await CusdContract.methods.owner().call()
-            assert.equal(web3.utils.toChecksumAddress(owner), web3.utils.toChecksumAddress(ownerCUSD))
-        })
     })
     describe('WT0 Contract', () => {
         it('- total supply > 0', async () => {
             let totalSupply = await Wt0Contract.methods.totalSupply().call()
             let totalSupplyEther = web3.utils.fromWei(totalSupply.toString(), 'ether')
             assert(totalSupplyEther > 0)
-        })
-        it('- has the correct owner', async () => {
-            let owner = await Wt0Contract.methods.owner().call()
-            assert.equal(web3.utils.toChecksumAddress(owner), web3.utils.toChecksumAddress(ownerWT0))
         })
         it('- is linked to the correct CUSD address', async () => {
             let cusdAddress = await Wt0Contract.methods.cusdAddress().call()
@@ -114,8 +96,10 @@ contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
 
 contract('ERC20-CUSD', async (accounts) => {
     const amountToMint = AMOUNT_OF_TOKENS_TO_MINT
-    const minterKey = `0x${process.env.CUSD_MINTER_ROPSTEN}`
+    const minterKey = `0x${config.minterKey}`
     let minter = web3.eth.accounts.privateKeyToAccount(minterKey)
+    const depositorKey = `0x${config.depositorKey}`
+    let depositor = web3.eth.accounts.privateKeyToAccount(depositorKey)
     describe('Minting tokens to depositor', () => {
         describe('minter:Minter', () => {
             it('- is expected address', async () => {
@@ -130,13 +114,13 @@ contract('ERC20-CUSD', async (accounts) => {
         describe(`wt0.mintCUSD`, () => {
             let balance
             it('- user has a balance', async () => {
-                balance = await CusdContract.methods.balanceOf(user).call()
+                balance = await CusdContract.methods.balanceOf(depositor.address).call()
                 assert(balance > 0)
             })
     
             it(`- minting ${amountToMint} tokens`, async () => {
                 let amountToMintEther = web3.utils.toWei(amountToMint.toString(), 'ether')
-                let mintTransaction = Wt0Contract.methods.mintCUSD(user, amountToMintEther)
+                let mintTransaction = Wt0Contract.methods.mintCUSD(depositor.address, amountToMintEther)
                 let gasEstimate = await mintTransaction.estimateGas({ from: minter.address })
                 let signedTransaction = await minter.signTransaction({
                     gas: gasEstimate,
@@ -156,7 +140,7 @@ contract('ERC20-CUSD', async (accounts) => {
             let postBalance
             it('- user balance is expected post-mint', async () => {
                 let amountMintedEther = web3.utils.toWei(amountToMint.toString(), 'ether')
-                postBalance = await CusdContract.methods.balanceOf(user).call()
+                postBalance = await CusdContract.methods.balanceOf(depositor.address).call()
                 assert.equal(parseFloat(postBalance), parseFloat(balance)+parseFloat(amountMintedEther))
             })
         })
@@ -168,8 +152,8 @@ contract('ZK-CUSD', async (accounts) => {
     // @dev: We have to use “secp256k1” because AZTEC needs the accounts’ public keys, not just their Ethereum addresses
 
     // Keys: Switch roles by editing these variables
-    const depositorKey = `0x${process.env.ROPSTEN_CUSD_USER}`
-    const redeemerKey = `0x${process.env.ROPSTEN_CUSD_USER_2}`
+    const depositorKey = `0x${config.depositorKey}`
+    const redeemerKey = `0x${config.redeemerKey}`
 
     // Depositor: Deposits public ERC20 into private zk notes
     const amountToDeposit = AMOUNT_OF_TOKENS_TO_MINT
@@ -297,7 +281,7 @@ contract('ZK-CUSD', async (accounts) => {
                     inputNoteOwners
                 )
             })
-            it(`- approve ACE top spend public value`, async () => {
+            it(`- approve ACE too spend public value`, async () => {
                 const signer = depositorAccount
                 // Any proof that results in the transfer of public value has to be first approved by the owner of the 
                 // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
@@ -557,7 +541,7 @@ contract('ZK-CUSD', async (accounts) => {
                     inputNoteOwners
                 )
             })
-            it(`- approve ACE top spend public value`, async () => {
+            it(`- approve ACE too spend public value`, async () => {
                 const signer = redeemerAccount
                 // Any proof that results in the transfer of public value has to be first approved by the owner of the 
                 // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
