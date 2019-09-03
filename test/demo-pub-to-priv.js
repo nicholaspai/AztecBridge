@@ -38,7 +38,7 @@ const CusdContract = new web3.eth.Contract(CUSDABI, CusdAddress)
 const Wt0Contract = new web3.eth.Contract(WT0ABI, Wt0Address)
 const ZKAssetContract = new web3.eth.Contract(aztecContractArtifacts.ZkAsset.abi, ZKAssetAddress)
 
-contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
+contract(`Detecting Contracts on network (${NET})`, async () => {
 
     describe('Testing Web3 instance', () => {
         const web3Version = "1.2.1"
@@ -94,7 +94,7 @@ contract(`Detecting Contracts on network (${NET})`, async (accounts) => {
 
 })
 
-contract('ERC20-CUSD', async (accounts) => {
+contract('ERC20-CUSD', async () => {
     const amountToMint = AMOUNT_OF_TOKENS_TO_MINT
     const minterKey = `0x${config.minterKey}`
     let minter = web3.eth.accounts.privateKeyToAccount(minterKey)
@@ -148,7 +148,7 @@ contract('ERC20-CUSD', async (accounts) => {
 
 })
 
-contract('ZK-CUSD', async (accounts) => {
+contract('ZK-CUSD', async () => {
     // @dev: We have to use “secp256k1” because AZTEC needs the accounts’ public keys, not just their Ethereum addresses
 
     // Keys: Switch roles by editing these variables
@@ -173,21 +173,23 @@ contract('ZK-CUSD', async (accounts) => {
     let redeemerAccount = web3.eth.accounts.privateKeyToAccount(redeemerKey) // Ethereum account
     const amountToRedeemWei = parseFloat(web3.utils.toWei(amountToRedeem.toString(), 'ether'))
 
+    // Store AZTEC notes for future convenience
+    let depositOutputNotes
+    let transferOutputNotes
+    let redeemOutputNotes
+    
     describe(`A depositor (${depositorAccount.address.substring(0,6)}) wants to deposit ${amountToDeposit} ERC20 into private notes, and send ${amountToRedeem} zk-notes to a redeemer (${redeemerAccount.address.substring(0,6)})`, () => {
-        describe('Increase allowances to cover all confidential transfers', () => {
+        describe('Increase allowances for ERC20 deposits', () => {
 
             /**
              * Invariants
              */
             let startingAllowanceDepositor
-            let startingAllowanceRedeemer
             const aceAddress = AceContract.options.address
             describe(`Using increaseApproval() instead of approve() due to security issues with the latter`, () => {
-                it(`- detected ACE's allowance`, async () => {
+                it(`- got depositor's allowance for ACE`, async () => {
                     startingAllowanceDepositor = await CusdContract.methods.allowance(depositorAccount.address, aceAddress).call()
-                    startingAllowanceRedeemer = await CusdContract.methods.allowance(redeemerAccount.address, aceAddress).call()
                     assert(parseFloat(startingAllowanceDepositor) >= 0)
-                    assert(parseFloat(startingAllowanceRedeemer) >= 0)
                 })
                 it(`- increases allowance for ACE to spend on behalf of depositor +${amountToDeposit}`, async () => {
                     let user = depositorAccount
@@ -205,41 +207,15 @@ contract('ZK-CUSD', async (accounts) => {
                         signedApproveTransaction.rawTransaction
                     )
                     // @DEBUG:
-                    // console.log(`Pending increase allowance hash: `, pendingApproveHash.transactionHash) 
                     assert(pendingApproveHash.status)
                 })
-                it(`- increases allowance for ACE to spend on behalf of redeemer +${amountToRedeem}`, async () => {
-                    let user = redeemerAccount
-                    // Increase allowance for ACE to spend on behalf of receiver of minted zk notes
-                    let amountToApproveWei = amountToRedeemWei
-                    let _approveTransaction = CusdContract.methods.increaseApproval(aceAddress, amountToApproveWei.toString())
-                    let gasEstimateApprove = await _approveTransaction.estimateGas({ from: user.address })
-                    let signedApproveTransaction = await user.signTransaction({
-                        gas: gasEstimateApprove,
-                        gasPrice: web3.utils.toWei('30', 'gwei'),
-                        to: CusdContract.options.address,
-                        data: _approveTransaction.encodeABI()
-                    })
-                    let pendingApproveHash = await web3.eth.sendSignedTransaction(
-                        signedApproveTransaction.rawTransaction
-                    )
-                    // @DEBUG:
-                    // console.log(`Pending increase allowance hash: `, pendingApproveHash.transactionHash)  
-                    assert(pendingApproveHash.status)
-                })
-                it(`- allowances are increased as expected`, async () => {
+                it(`- allowance has increased as expected`, async () => {
                     allowanceDepositor = await CusdContract.methods.allowance(depositorAccount.address, aceAddress).call()
-                    allowanceRedeemer = await CusdContract.methods.allowance(redeemerAccount.address, aceAddress).call()
                     assert.equal(parseFloat(allowanceDepositor), parseFloat(startingAllowanceDepositor)+amountToDepositWei)
-                    assert.equal(parseFloat(allowanceRedeemer), parseFloat(startingAllowanceRedeemer)+amountToRedeemWei)
                 })
             })
         })
 
-        // Store output notes to use in future private transactions
-        let depositOutputNotes
-        let transferOutputNotes
-        let redeemOutputNotes
 
         describe('Creates new zk notes', () => {
             /**
@@ -281,7 +257,7 @@ contract('ZK-CUSD', async (accounts) => {
                     inputNoteOwners
                 )
             })
-            it(`- approve ACE too spend public value`, async () => {
+            it(`- approve ACE to spend public value`, async () => {
                 const signer = depositorAccount
                 // Any proof that results in the transfer of public value has to be first approved by the owner of the 
                 // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
@@ -541,7 +517,7 @@ contract('ZK-CUSD', async (accounts) => {
                     inputNoteOwners
                 )
             })
-            it(`- approve ACE too spend public value`, async () => {
+            it(`- approve ACE to spend public value`, async () => {
                 const signer = redeemerAccount
                 // Any proof that results in the transfer of public value has to be first approved by the owner of the 
                 // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
@@ -644,4 +620,8 @@ contract('ZK-CUSD', async (accounts) => {
             })
         })
     })
+
+    // TODO:
+    // Bilateral swap
+    // Range proof
 })
