@@ -517,31 +517,31 @@ contract('ZK-CUSD', async () => {
                     inputNoteOwners
                 )
             })
-            it(`- approve ACE to spend public value`, async () => {
-                const signer = redeemerAccount
-                // Any proof that results in the transfer of public value has to be first approved by the owner of the 
-                // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
-                // in the proof and acts as an additional security measure when dealing with ERC20s
-                let _transaction = AceContract.methods.publicApprove(
-                    ZKAssetContract.options.address, 
-                    redeemProof.hash, 
-                    redeemPublicValue
-                )
-                let _gasEstimate = await _transaction.estimateGas({ from: signer.address })
-                let signedTransaction = await signer.signTransaction({
-                    gas: _gasEstimate,
-                    gasPrice: web3.utils.toWei('30', 'gwei'),
-                    to: AceContract.options.address,
-                    data: _transaction.encodeABI()
-                })
-                let pendingHash = await web3.eth.sendSignedTransaction(
-                    signedTransaction.rawTransaction
-                )
-                // @DEBUG:
-                // console.log(`Pending block hash: `, pendingHash.blockHash)  
-                // console.log(`Pending transaction hash: `, pendingHash.transactionHash)
-                assert(pendingHash.status)
-            })
+            // it(`- approve ACE to spend public value`, async () => {
+            //     const signer = redeemerAccount
+            //     // Any proof that results in the transfer of public value has to be first approved by the owner of the 
+            //     // public tokens for it to be valid. This allows ACE to transfer the value of the tokens consumed 
+            //     // in the proof and acts as an additional security measure when dealing with ERC20s
+            //     let _transaction = AceContract.methods.publicApprove(
+            //         ZKAssetContract.options.address, 
+            //         redeemProof.hash, 
+            //         redeemPublicValue
+            //     )
+            //     let _gasEstimate = await _transaction.estimateGas({ from: signer.address })
+            //     let signedTransaction = await signer.signTransaction({
+            //         gas: _gasEstimate,
+            //         gasPrice: web3.utils.toWei('30', 'gwei'),
+            //         to: AceContract.options.address,
+            //         data: _transaction.encodeABI()
+            //     })
+            //     let pendingHash = await web3.eth.sendSignedTransaction(
+            //         signedTransaction.rawTransaction
+            //     )
+            //     // @DEBUG:
+            //     // console.log(`Pending block hash: `, pendingHash.blockHash)  
+            //     // console.log(`Pending transaction hash: `, pendingHash.transactionHash)
+            //     assert(pendingHash.status)
+            // })
 
             /** 
              * Testing Invariants 

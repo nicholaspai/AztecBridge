@@ -1,6 +1,9 @@
 require('dotenv').config() 
+const alchemyKey =`https://eth-ropsten.alchemyapi.io/jsonrpc/${process.env.ALCHEMY_API_KEY}`
+const infuraKey = `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`
+
 module.exports = {
-    web3Provider: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    web3Provider: alchemyKey,
     networkName: `Ropsten`,
     tokensToMint: 10,
     // ZK Settings
